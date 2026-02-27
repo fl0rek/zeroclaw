@@ -174,6 +174,10 @@ pub struct Config {
     #[serde(default)]
     pub http_request: HttpRequestConfig,
 
+    /// Authenticated request tool configuration (`[authenticated_request]`).
+    #[serde(default)]
+    pub authenticated_request: AuthenticatedRequestConfig,
+
     /// Multimodal (image) handling configuration (`[multimodal]`).
     #[serde(default)]
     pub multimodal: MultimodalConfig,
@@ -1043,6 +1047,69 @@ fn default_http_max_response_size() -> usize {
 }
 
 fn default_http_timeout_secs() -> u64 {
+    30
+}
+
+// ── Authenticated request (OIDC client credentials) ─────────────
+
+/// Single OIDC provider for client credentials (`[[authenticated_request.providers]]`).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct OidcProviderConfig {
+    /// Human-readable name (used in logs, not by the agent)
+    pub name: String,
+    /// Token endpoint URL (e.g. "https://auth.example.com/api/oidc/token")
+    pub token_endpoint: String,
+    /// OAuth2 client ID
+    pub client_id: String,
+    /// OAuth2 client secret (plaintext; loaded from encrypted config at runtime)
+    pub client_secret: String,
+    /// Target audience URLs — doubles as the domain allowlist for this provider.
+    /// A request URL must match one of these origins (scheme+host+port) to use this provider.
+    pub audiences: Vec<String>,
+    /// Extra scopes to request (default: `["authelia.bearer.authz"]`)
+    #[serde(default = "default_oidc_scopes")]
+    pub scopes: Vec<String>,
+    /// Token refresh buffer in seconds (refresh when < this much TTL remains, default: 30)
+    #[serde(default = "default_oidc_token_refresh_buffer_secs")]
+    pub token_refresh_buffer_secs: u64,
+}
+
+/// Authenticated request tool configuration (`[authenticated_request]`).
+///
+/// Provides an OIDC client-credentials-based HTTP tool that acquires and caches
+/// bearer tokens internally so the agent never sees credentials.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct AuthenticatedRequestConfig {
+    /// Enable the `authenticated_request` tool
+    #[serde(default)]
+    pub enabled: bool,
+    /// OIDC providers (matched by audience to request URL)
+    #[serde(default)]
+    pub providers: Vec<OidcProviderConfig>,
+    /// Request timeout in seconds (default: 30)
+    #[serde(default = "default_oidc_timeout_secs")]
+    pub timeout_secs: u64,
+}
+
+impl Default for AuthenticatedRequestConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            providers: vec![],
+            timeout_secs: default_oidc_timeout_secs(),
+        }
+    }
+}
+
+fn default_oidc_scopes() -> Vec<String> {
+    vec!["authelia.bearer.authz".into()]
+}
+
+fn default_oidc_token_refresh_buffer_secs() -> u64 {
+    30
+}
+
+fn default_oidc_timeout_secs() -> u64 {
     30
 }
 
@@ -3617,6 +3684,7 @@ impl Default for Config {
             secrets: SecretsConfig::default(),
             browser: BrowserConfig::default(),
             http_request: HttpRequestConfig::default(),
+            authenticated_request: AuthenticatedRequestConfig::default(),
             multimodal: MultimodalConfig::default(),
             web_fetch: WebFetchConfig::default(),
             web_search: WebSearchConfig::default(),
@@ -5149,6 +5217,7 @@ default_temperature = 0.7
             secrets: SecretsConfig::default(),
             browser: BrowserConfig::default(),
             http_request: HttpRequestConfig::default(),
+            authenticated_request: AuthenticatedRequestConfig::default(),
             multimodal: MultimodalConfig::default(),
             web_fetch: WebFetchConfig::default(),
             web_search: WebSearchConfig::default(),
@@ -5331,6 +5400,7 @@ tool_dispatcher = "xml"
             secrets: SecretsConfig::default(),
             browser: BrowserConfig::default(),
             http_request: HttpRequestConfig::default(),
+            authenticated_request: AuthenticatedRequestConfig::default(),
             multimodal: MultimodalConfig::default(),
             web_fetch: WebFetchConfig::default(),
             web_search: WebSearchConfig::default(),

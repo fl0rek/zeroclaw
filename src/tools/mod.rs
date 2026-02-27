@@ -15,6 +15,7 @@
 //! To add a new tool, implement [`Tool`] in a new submodule and register it in
 //! [`all_tools_with_runtime`]. See `AGENTS.md` §7.3 for the full change playbook.
 
+pub mod authenticated_request;
 pub mod browser;
 pub mod browser_open;
 pub mod cli_discovery;
@@ -55,6 +56,7 @@ pub mod traits;
 pub mod web_fetch;
 pub mod web_search_tool;
 
+pub use authenticated_request::AuthenticatedRequestTool;
 pub use browser::{BrowserTool, ComputerUseConfig};
 pub use browser_open::BrowserOpenTool;
 pub use composio::ComposioTool;
@@ -274,6 +276,15 @@ pub fn all_tools_with_runtime(
             http_config.allowed_domains.clone(),
             http_config.max_response_size,
             http_config.timeout_secs,
+        )));
+    }
+
+    if root_config.authenticated_request.enabled
+        && !root_config.authenticated_request.providers.is_empty()
+    {
+        tool_arcs.push(Arc::new(AuthenticatedRequestTool::new(
+            security.clone(),
+            root_config.authenticated_request.clone(),
         )));
     }
 
